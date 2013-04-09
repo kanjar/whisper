@@ -1,0 +1,226 @@
+package main
+
+import (
+	"bufio"
+	"crypto/rand"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"io"
+	"log"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
+	"sync"
+	"time"
+)
+
+var (
+	masterAddr = flag.String("master", "", "master address")
+)
+
+const (
+	refreshInterval = 5 * time.Second
+	sendTimeout     = 5 * time.Second
+	defaultTTL      = 5
+)
+
+type Message struct {
+	ID   string
+	Body string
+	TTL  int
+}
+
+var Peers = struct {
+	sync.RWMutex
+	m map[string]chan<- Message
+}{m: make(map[string]chan<- Message)}
+
+var Messages = struct {
+	sync.Mutex
+	m map[string]bool
+}{m: make(map[string]bool)}
+
+func main() {
+	flag.Parse()
+	if *masterAddr == "" {
+		log.Fatal("empty master address")
+	}
+
+	l, err := net.Listen("tcp4", ":0")
+	if err != nil {
+		log.Fatal(err)
+	}
+	go accept(l)
+
+	go readInput()
+
+	self := l.Addr().String()
+	err = register(self)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for {
+		addrs, err := fetchPeers()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		for _, addr := range addrs {
+			if addr != self {
+				go connect(addr)
+			}
+		}
+		time.Sleep(refreshInterval)
+	}
+}
+
+func readInput() {
+	s := bufio.NewScanner(os.Stdin)
+	for s.Scan() {
+		id := randomID()
+		Messages.Lock()
+		Messages.m[id] = true
+		Messages.Unlock()
+		broadcast(Message{
+			ID:   id,
+			Body: s.Text(),
+			TTL:  defaultTTL,
+		})
+	}
+	log.Fatal(s.Err())
+}
+
+func randomID() string {
+	b := make([]byte, 20)
+	n, _ := rand.Read(b)
+	return fmt.Sprintf("%x", b[:n])
+}
+
+func connect(addr string) {
+	// Don't connect if we're already connected.
+	Peers.RLock()
+	_, ok := Peers.m[addr]
+	Peers.RUnlock()
+	if ok {
+		return
+	}
+
+	// Connect to the peer.
+	c, err := net.Dial("tcp", addr)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer c.Close()
+
+	log.Println("connected to", addr)
+	defer log.Println("disconnected from", addr)
+
+	// Add the peer channel to the Peers map.
+	msgCh := make(chan Message)
+	Peers.Lock()
+	Peers.m[addr] = msgCh
+	Peers.Unlock()
+
+	// Remove the peer when this function exits.
+	defer func() {
+		Peers.Lock()
+		delete(Peers.m, addr)
+		Peers.Unlock()
+	}()
+
+	// Send messages to the peer until an error occurs.
+	enc := json.NewEncoder(c)
+	for msg := range msgCh {
+		err := enc.Encode(msg)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+	}
+}
+
+func accept(l net.Listener) {
+	for {
+		c, err := l.Accept()
+		if err != nil {
+			log.Fatal(err)
+		}
+		go serve(c)
+	}
+}
+
+func serve(c net.Conn) {
+	defer c.Close()
+	dec := json.NewDecoder(c)
+	for {
+		// Decode a message from the connection.
+		var msg Message
+		err := dec.Decode(&msg)
+		if err != nil {
+			if err != io.EOF {
+				log.Println(err)
+			}
+			return
+		}
+
+		// Drop this message if we've seen a message with this ID
+		// before and, if not, record the ID for future reference.
+		Messages.Lock()
+		seen := Messages.m[msg.ID]
+		if !seen {
+			Messages.m[msg.ID] = true
+		}
+		Messages.Unlock()
+		if seen {
+			continue
+		}
+
+		if msg.TTL > 0 {
+			msg.TTL--
+			broadcast(msg)
+		}
+
+		fmt.Println(msg.Body)
+	}
+}
+
+func broadcast(m Message) {
+	Peers.RLock()
+	for _, ch := range Peers.m {
+		go func(ch chan<- Message) {
+			select {
+			case ch <- m:
+			case <-time.After(sendTimeout):
+			}
+		}(ch)
+	}
+	Peers.RUnlock()
+}
+
+func register(addr string) error {
+	u := fmt.Sprintf("http://%s/hello", *masterAddr)
+	v := url.Values{"addr": []string{addr}}
+	r, err := http.PostForm(u, v)
+	if err != nil {
+		return err
+	}
+	r.Body.Close()
+	if r.StatusCode != http.StatusOK {
+		return fmt.Errorf("register: %v", r.Status)
+	}
+	return nil
+}
+
+func fetchPeers() ([]string, error) {
+	u := fmt.Sprintf("http://%s/peers", *masterAddr)
+	r, err := http.Get(u)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Body.Close()
+	var peers []string
+	return peers, json.NewDecoder(r.Body).Decode(&peers)
+}
