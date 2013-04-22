@@ -9,15 +9,11 @@ import (
 	"io"
 	"log"
 	"net"
-	"net/http"
-	"net/url"
 	"os"
 	"sync"
 	"time"
-)
 
-var (
-	masterAddr = flag.String("master", "", "master address")
+	"github.com/nf/whisper/pkg/master"
 )
 
 const (
@@ -44,9 +40,6 @@ var Messages = struct {
 
 func main() {
 	flag.Parse()
-	if *masterAddr == "" {
-		log.Fatal("empty master address")
-	}
 
 	l, err := net.Listen("tcp4", ":0")
 	if err != nil {
@@ -57,12 +50,12 @@ func main() {
 	go readInput()
 
 	self := l.Addr().String()
-	err = register(self)
+	err = master.RegisterPeer(self)
 	if err != nil {
 		log.Fatal(err)
 	}
 	for {
-		addrs, err := fetchPeers()
+		addrs, err := master.ListPeers()
 		if err != nil {
 			log.Println(err)
 			continue
@@ -198,29 +191,4 @@ func broadcast(m Message) {
 		}(ch)
 	}
 	Peers.RUnlock()
-}
-
-func register(addr string) error {
-	u := fmt.Sprintf("http://%s/hello", *masterAddr)
-	v := url.Values{"addr": []string{addr}}
-	r, err := http.PostForm(u, v)
-	if err != nil {
-		return err
-	}
-	r.Body.Close()
-	if r.StatusCode != http.StatusOK {
-		return fmt.Errorf("register: %v", r.Status)
-	}
-	return nil
-}
-
-func fetchPeers() ([]string, error) {
-	u := fmt.Sprintf("http://%s/peers", *masterAddr)
-	r, err := http.Get(u)
-	if err != nil {
-		return nil, err
-	}
-	defer r.Body.Close()
-	var peers []string
-	return peers, json.NewDecoder(r.Body).Decode(&peers)
 }
