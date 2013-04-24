@@ -14,8 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nf/whisper/pkg/helper"
-	"github.com/nf/whisper/pkg/master"
+	"github.com/nf/whisper/util"
 )
 
 const (
@@ -45,14 +44,14 @@ var Messages = struct {
 func main() {
 	flag.Parse()
 
-	l, err := helper.Listen()
+	l, err := util.Listen()
 	if err != nil {
 		log.Fatal(err)
 	}
 	go accept(l)
 
 	self := l.Addr().String()
-	err = master.RegisterPeer(self)
+	err = util.RegisterPeer(self)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -76,7 +75,7 @@ func accept(l net.Listener) {
 // new peers.
 func poll(self string) {
 	for {
-		addrs, err := master.ListPeers()
+		addrs, err := util.ListPeers()
 		if err != nil {
 			log.Println(err)
 			continue
@@ -181,7 +180,7 @@ func readMessages(c net.Conn) {
 func readInput() {
 	s := bufio.NewScanner(os.Stdin)
 	for s.Scan() {
-		id := helper.RandomID()
+		id := util.RandomID()
 		Messages.Lock()
 		Messages.m[id] = true
 		Messages.Unlock()

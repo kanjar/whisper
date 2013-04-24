@@ -1,6 +1,6 @@
-// Package helper provides various useful functions for completing the
+// Package util provides various useful functions for completing the
 // "Whispering Gophers" code lab.
-package helper
+package util
 
 import (
 	"crypto/rand"
