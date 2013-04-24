@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"html/template"
 	"log"
 	"net"
 	"net/http"
@@ -18,10 +19,42 @@ var Peers struct {
 
 func main() {
 	go poller()
+	http.HandleFunc("/", root)
 	http.HandleFunc("/hello", hello)
 	http.HandleFunc("/peers", peers)
 	http.ListenAndServe(":8000", nil)
 }
+
+func root(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	Peers.RLock()
+	peers := append([]string{}, Peers.s...)
+	Peers.RUnlock()
+	err := rootTemplate.Execute(w, peers)
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+var rootTemplate = template.Must(template.New("root").Parse(`
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="refresh" content="1">
+	</head>
+	<body>
+		<h3>Connected peers:</h3>
+		<ul>
+		{{range .}}
+		<li>{{.}}</li>
+		{{end}}
+		</ul>
+	</body>
+</html>
+`))
 
 func hello(w http.ResponseWriter, r *http.Request) {
 	addr := r.FormValue("addr")
