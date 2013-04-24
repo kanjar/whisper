@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"crypto/rand"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -73,7 +72,7 @@ func main() {
 func readInput() {
 	s := bufio.NewScanner(os.Stdin)
 	for s.Scan() {
-		id := randomID()
+		id := helper.RandomID()
 		Messages.Lock()
 		Messages.m[id] = true
 		Messages.Unlock()
@@ -84,12 +83,6 @@ func readInput() {
 		})
 	}
 	log.Fatal(s.Err())
-}
-
-func randomID() string {
-	b := make([]byte, 20)
-	n, _ := rand.Read(b)
-	return fmt.Sprintf("%x", b[:n])
 }
 
 func connect(addr string) {

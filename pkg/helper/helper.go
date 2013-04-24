@@ -1,6 +1,9 @@
+// Package helper provides various useful functions for completing the
+// "Whispering Gophers" code lab.
 package helper
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"net"
@@ -22,10 +25,10 @@ func externalIP() (string, error) {
 		return "", err
 	}
 	for _, iface := range ifaces {
-		if iface.Flags & net.FlagUp == 0 {
+		if iface.Flags&net.FlagUp == 0 {
 			continue // interface down
 		}
-		if iface.Flags & net.FlagLoopback != 0 {
+		if iface.Flags&net.FlagLoopback != 0 {
 			continue // loopback interface
 		}
 		addrs, err := iface.Addrs()
@@ -49,4 +52,11 @@ func externalIP() (string, error) {
 		}
 	}
 	return "", errors.New("are you connected to the network?")
+}
+
+// RandomID returns an 8 byte random string in hexadecimal.
+func RandomID() string {
+	b := make([]byte, 8)
+	n, _ := rand.Read(b)
+	return fmt.Sprintf("%x", b[:n])
 }
