@@ -1,0 +1,98 @@
+Whispering Gophers
+Network programming in Go
+
+Andrew Gerrand
+
+* Introduction
+
+* 1. Reading and encoding messages
+
+Write a program that
+
+- reads lines from standard input (`os.Stdin`) and
+- encodes them as a JSON object written to standard output (`os.Stdout`).
+
+This line of input:
+
+	Hello, world
+
+should produce this output:
+
+	{"Body":"Hello, world"}
+
+This is our system's basic message format.
+
+See:
+
+- [[http://golang.org/pkg/encoding/json/#Encoder][`encoding/json.Encoder`]]
+- [[http://golang.org/pkg/bufio/#Reader][`bufio.Reader`]] (use `ReadString`, *not* `ReadLine`)
+
+# TOOD(adg): switch to bufio.Scanner post go1.1
+
+* 2. Send messages to a peer
+
+Extend your program to
+
+- make a TCP connection to a remote host and
+- write the JSON-encoded messages to the connnection instead of standard output.
+
+See:
+
+- [[http://golang.org/pkg/net/#Dial][`net.Dial`]]
+- [[http://golang.org/pkg/log/#Fatal][`log.Fatal`]] (for bailing when errors occur)
+
+Your instructor will specify the address of the remote host, and show a log of received messages on screen to aid in debugging.
+
+# me: peer that logs received messages, prints errors, verbose mode
+
+* 3. Accept peer connections
+
+Extend your program to
+
+- listen on a TCP port,
+- register the listener address with the master server,
+- accept incoming connections and launch a goroutine to handle each one,
+- decode JSON messages from the incoming connections, and
+- print each message `Body` to standard output.
+
+Hints:
+
+- import [[http://godoc.org/github.com/nf/whisper/util/][`"github.com/nf/whisper/util"`]] and use its `Listen` and `RegisterPeer` functions
+- read about [[http://golang.org/pkg/net/#Listener][`net.Listener`]], and get the listen address using its `Addr` method
+- [[http://golang.org/pkg/encoding/json/#Decoder][`encoding/json.Decoder`]] and the `fmt` package
+
+# me: master that sends funny messages to the client
+
+* 4. Broadcast messages to many peers
+
+Extend your program to
+
+- fetch a list of peers from the master,
+- connect to each of the peers simultaneously, and
+- send messages entered at standard input to all connected peers.
+
+Hints:
+
+- [[http://godoc.org/github.com/nf/whisper/util/#ListPeers][`util.ListPeers`]]
+- separate the input handling from the message encoding
+- each peer should have a goroutine that receives messages from a channel and sends them to the peer as JSON objects
+- use a global map of type `map[string]chan`Message` to track connected peers
+
+* 5. Re-broadcast received messages
+
+Extend your program to
+
+- add `ID` and `TTL` fields to the message object,
+- send new messages with a random ID and a fixed Time To Live (eg, 5),
+- re-send any received messages to all connected peers,
+- record the ID of each incoming message,
+- don't re-send messages you have already seen.
+
+The new message format:
+
+	{"Body": "Hello, world", "TTL": 5, "ID": "c8e2f561"}
+
+Hints:
+
+- use [[http://godoc.org/github.com/nf/whisper/util/#RandomID][`util.RandomID`]] to generate random IDs
+- use a global map of type `map[string]bool` to track seen message IDs
