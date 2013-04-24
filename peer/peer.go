@@ -114,10 +114,6 @@ func connect(peerAddr string) {
 	}
 	defer c.Close()
 
-	// Some diagnostics.
-	log.Println("- connected to", peerAddr)
-	defer log.Println("- disconnected from", peerAddr)
-
 	// Add the peer channel to the Peers map.
 	msgCh := make(chan Message)
 	Peers.Lock()
@@ -144,11 +140,12 @@ func connect(peerAddr string) {
 
 // readMessages reads Messages from the given reader, re-broadcasts them
 // to all connected peers, and logs them to the console.
-func readMessages(rc io.ReadCloser) {
-	defer rc.Close()
-	dec := json.NewDecoder(rc)
+func readMessages(c net.Conn) {
+	defer c.Close()
+
+	// Decode messages from the connection.
+	dec := json.NewDecoder(c)
 	for {
-		// Decode a message from the connection.
 		var msg Message
 		err := dec.Decode(&msg)
 		if err != nil {
