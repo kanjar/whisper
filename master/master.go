@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"html/template"
 	"log"
 	"net"
@@ -12,17 +13,25 @@ import (
 
 const pollInterval = 5 * time.Second
 
+var (
+	httpAddr    = flag.String("http", ":8000", "HTTP listen address")
+	pollEnabled = flag.Bool("poll", true, "Poll for dead peers")
+)
+
 var Peers struct {
 	sync.RWMutex
 	s []string
 }
 
 func main() {
-	go poller()
+	flag.Parse()
+	if *pollEnabled {
+		go poller()
+	}
 	http.HandleFunc("/", root)
 	http.HandleFunc("/hello", hello)
 	http.HandleFunc("/peers", peers)
-	http.ListenAndServe(":8000", nil)
+	http.ListenAndServe(*httpAddr, nil)
 }
 
 func root(w http.ResponseWriter, r *http.Request) {
