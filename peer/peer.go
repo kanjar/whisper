@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nf/whisper/pkg/helper"
 	"github.com/nf/whisper/pkg/master"
 )
 
@@ -41,7 +42,7 @@ var Messages = struct {
 func main() {
 	flag.Parse()
 
-	l, err := net.Listen("tcp4", ":0")
+	l, err := helper.Listen()
 	if err != nil {
 		log.Fatal(err)
 	}

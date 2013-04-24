@@ -4,6 +4,7 @@ package master
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -14,6 +15,9 @@ var masterAddr = flag.String("master", "", "master address")
 
 // RegisterPeer registers a peer address with the master.
 func RegisterPeer(addr string) error {
+	if *masterAddr == "" {
+		return flagErr
+	}
 	u := fmt.Sprintf("http://%s/hello", *masterAddr)
 	v := url.Values{"addr": []string{addr}}
 	r, err := http.PostForm(u, v)
@@ -29,6 +33,9 @@ func RegisterPeer(addr string) error {
 
 // ListPeer retrieves a list of peer addresses from the master.
 func ListPeers() ([]string, error) {
+	if *masterAddr == "" {
+		return nil, flagErr
+	}
 	u := fmt.Sprintf("http://%s/peers", *masterAddr)
 	r, err := http.Get(u)
 	if err != nil {
@@ -42,3 +49,6 @@ func ListPeers() ([]string, error) {
 	}
 	return peers, nil
 }
+
+var flagErr = errors.New(`You must specify the -master flag.
+(And make sure you call flag.Parse() at the top of your main() function.)`)
