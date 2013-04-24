@@ -4,7 +4,7 @@
 
 **This is a work in progress so please don't share it around just yet.**
 
-For a start, look at [the slides](http://talks.golang.org/github.com/nf/whisper/talk.slide).
+For a start, look at [the slides](http://talks.godoc.org/github.com/nf/whisper/talk.slide).
 
 Then install the utility library:
 

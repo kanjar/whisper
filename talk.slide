@@ -5,6 +5,16 @@ Andrew Gerrand
 
 * Introduction
 
+Visit
+
+.link http://github.com/nf/whisper
+
+for code samples and links to these slides.
+
+Then install the utility library:
+
+	go get github.com/nf/whisper/util
+
 * 1. Reading and encoding messages
 
 Write a program that
