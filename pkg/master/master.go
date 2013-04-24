@@ -1,5 +1,5 @@
 // Package master provides functions for communicating with a whispernet master
-// server.
+// server. This is part of the "Whispering Gophers" code lab.
 package master
 
 import (
